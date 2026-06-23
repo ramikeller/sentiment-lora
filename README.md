@@ -22,7 +22,7 @@ Input text
 ```
 src/
   data.rs    — CSV loading, tokenization, padding
-  model.rs   — BERT loading from Hugging Face Hub
+  model.rs   — BERT loading, SentimentModel (BERT + classification head)
   lora.rs    — LoRA A/B matrix pairs (in progress)
   train.rs   — training loop and evaluation (in progress)
   main.rs    — entrypoint
@@ -51,6 +51,6 @@ On first run, `bert-base-uncased` weights (~440 MB) are downloaded and cached in
 | 1 | Project skeleton | done |
 | 2 | Data loading & tokenization | done |
 | 3 | BERT model loading | done |
-| 4 | Classification head | in progress |
+| 4 | Classification head | done |
 | 5 | LoRA layers | in progress |
 | 6 | Training loop & evaluation | in progress |
