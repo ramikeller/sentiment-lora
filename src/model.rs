@@ -3,6 +3,7 @@ use candle_core::{Device, DType};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config as BertConfig};
 use hf_hub::{api::sync::Api, Repo, RepoType};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 // Everything the rest of the program needs after model loading.
@@ -46,14 +47,16 @@ pub fn load_bert(model_id: &str, device: &Device) -> Result<LoadedBert> {
     let bert_config: BertConfig =
         serde_json::from_str(&config_str).context("could not parse config.json")?;
 
-    // VarBuilder is candle's way of loading saved tensors into a model.
-    // It maps parameter names (e.g. "encoder.layer.0.attention.self.query.weight")
-    // to the tensors stored in the safetensors file.
-    // DType::F32 loads weights as 32-bit floats (standard for CPU inference/training).
-    let vb = unsafe {
-        VarBuilder::from_mmaped_safetensors(&[weights_path], DType::F32, device)
-            .context("failed to load model weights")?
-    };
+    // Load tensors and remap old TF-style LayerNorm key names (gamma/beta) to
+    // the PyTorch-style names (weight/bias) that candle-transformers expects.
+    // Older bert-base-uncased snapshots use the TF convention.
+    let raw_tensors = candle_core::safetensors::load(&weights_path, device)
+        .context("failed to load model weights")?;
+    let tensors: HashMap<String, _> = raw_tensors
+        .into_iter()
+        .map(|(k, v)| (k.replace("gamma", "weight").replace("beta", "bias"), v))
+        .collect();
+    let vb = VarBuilder::from_tensors(tensors, DType::F32, device);
 
     // Build the BERT model graph and populate it with the loaded weights.
     // .pp("bert") scopes all tensor lookups under the "bert." prefix,
