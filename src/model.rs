@@ -1,16 +1,50 @@
 use anyhow::{Context, Result};
-use candle_core::{Device, DType};
-use candle_nn::VarBuilder;
+use candle_core::{Device, DType, IndexOp, Module, Tensor};
+use candle_nn::{linear, Linear, VarBuilder, VarMap};
 use candle_transformers::models::bert::{BertModel, Config as BertConfig};
 use hf_hub::{api::sync::Api, Repo, RepoType};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-// Everything the rest of the program needs after model loading.
 pub struct LoadedBert {
     pub model: BertModel,
     pub tokenizer_path: PathBuf,
     pub device: Device,
+}
+
+// BERT encoder + a randomly-initialised linear classification head.
+// Only the head parameters (stored in var_map) are trained; BERT weights are frozen.
+pub struct SentimentModel {
+    bert: BertModel,
+    classifier: Linear,  // 768 → 2
+    pub var_map: VarMap,
+    pub device: Device,
+}
+
+impl SentimentModel {
+    pub fn new(loaded: LoadedBert) -> Result<Self> {
+        let var_map = VarMap::new();
+        let vb = VarBuilder::from_varmap(&var_map, DType::F32, &loaded.device);
+        let classifier = linear(768, 2, vb)?;
+        Ok(Self {
+            bert: loaded.model,
+            classifier,
+            var_map,
+            device: loaded.device,
+        })
+    }
+
+    // input_ids and attention_mask: shape [batch, seq_len], dtype U32.
+    // Returns logits of shape [batch, 2] (negative, positive).
+    pub fn forward(&self, input_ids: &Tensor, attention_mask: &Tensor) -> Result<Tensor> {
+        let token_type_ids = Tensor::zeros_like(input_ids)?;
+        // BERT encoder → [batch, seq_len, 768]
+        let hidden = self.bert.forward(input_ids, &token_type_ids, Some(attention_mask))?;
+        // [CLS] hidden state → [batch, 768]
+        let cls = hidden.i((.., 0, ..))?;
+        // linear head → [batch, 2]
+        Ok(self.classifier.forward(&cls)?)
+    }
 }
 
 // Download (or load from cache) the BERT weights and config from Hugging Face,
