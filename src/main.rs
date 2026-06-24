@@ -4,7 +4,8 @@ mod model;
 mod train;
 
 use anyhow::Result;
-use candle_core::{DType, Device, Tensor};
+use candle_core::Device;
+use std::path::Path;
 
 fn main() -> Result<()> {
     let device = Device::Cpu;
@@ -13,13 +14,14 @@ fn main() -> Result<()> {
     let tokenizer_path = loaded.tokenizer_path.clone();
     let model = model::SentimentModel::new(loaded)?;
 
-    // Smoke test: dummy batch [1, 128] to verify shapes are wired correctly.
-    let input_ids = Tensor::zeros((1usize, 128usize), DType::U32, &device)?;
-    let attention_mask = Tensor::ones((1usize, 128usize), DType::U32, &device)?;
-    let logits = model.forward(&input_ids, &attention_mask)?;
+    let tokenizer = data::load_tokenizer(&tokenizer_path)?;
+    let samples = data::load_dataset(Path::new("data/sentiment.csv"), &tokenizer, 128)?;
+    println!("Loaded {} samples", samples.len());
 
-    println!("Logits shape: {:?}", logits.shape());
-    println!("Tokenizer:    {}", tokenizer_path.display());
+    let baseline = train::evaluate(&model, &samples, &device)?;
+    println!("Accuracy (before training): {:.1}%", baseline * 100.0);
+
+    train::train(&model, &samples, &device, 10, 1e-3)?;
 
     Ok(())
 }
