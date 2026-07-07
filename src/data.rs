@@ -22,7 +22,7 @@ pub fn load_tokenizer(tokenizer_path: &Path) -> Result<Tokenizer> {
 
 // Tokenize a single string into input_ids and attention_mask.
 // max_len should be <= 512 for BERT (its hard architectural limit).
-fn tokenize(text: &str, tokenizer: &Tokenizer, max_len: usize) -> Result<(Vec<u32>, Vec<u32>)> {
+pub fn tokenize(text: &str, tokenizer: &Tokenizer, max_len: usize) -> Result<(Vec<u32>, Vec<u32>)> {
     // encode() runs the full tokenization pipeline:
     //   raw text → WordPiece subwords → integer IDs
     // add_special_tokens=true prepends [CLS] (101) and appends [SEP] (102)

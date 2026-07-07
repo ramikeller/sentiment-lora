@@ -38,8 +38,17 @@ data/
 
 ## Running
 
+**Train the classification head** (saves weights to `classifier.safetensors` when done):
+
 ```bash
 cargo run --release
+```
+
+**Run inference on a sentence** (loads saved weights automatically):
+
+```bash
+cargo run --release -- "This movie was absolutely fantastic!"
+# → positive
 ```
 
 On first run, `bert-base-uncased` weights (~440 MB) are downloaded and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the cache.
@@ -52,5 +61,6 @@ On first run, `bert-base-uncased` weights (~440 MB) are downloaded and cached in
 | 2 | Data loading & tokenization | done |
 | 3 | BERT model loading | done |
 | 4 | Classification head | done |
-| 5 | LoRA layers | in progress |
-| 6 | Training loop & evaluation | in progress |
+| 5 | Training loop & evaluation | done |
+| 6 | Command-line inference | done |
+| 7 | LoRA layers | in progress |
