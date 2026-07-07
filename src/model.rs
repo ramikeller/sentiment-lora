@@ -50,7 +50,7 @@ impl SentimentModel {
 // Download (or load from cache) the BERT weights and config from Hugging Face,
 // then construct the BertModel ready for forward passes.
 //
-// model_id: a HF repo name, e.g. "bert-base-uncased"
+// model_id: Hugging Face repo name, e.g. "bert-base-uncased"
 // device:   Device::Cpu for now — we add CUDA support later if needed
 pub fn load_bert(model_id: &str, device: &Device) -> Result<LoadedBert> {
     // hf-hub's sync API handles caching automatically.

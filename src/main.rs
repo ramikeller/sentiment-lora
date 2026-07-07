@@ -19,6 +19,19 @@ fn main() -> Result<()> {
     let tokenizer = data::load_tokenizer(&tokenizer_path)?;
 
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|s| s.as_str()) == Some("--eval") {
+        if Path::new(CHECKPOINT).exists() {
+            model.var_map.load(CHECKPOINT)?;
+        } else {
+            eprintln!("Warning: no checkpoint found at '{CHECKPOINT}', evaluating with random weights.");
+        }
+        let samples = data::load_dataset(Path::new("data/sentiment.csv"), &tokenizer, 128)?;
+        println!("Loaded {} samples", samples.len());
+        let accuracy = train::evaluate(&model, &samples, &device)?;
+        println!("Accuracy: {:.1}%", accuracy * 100.0);
+        return Ok(());
+    }
+
     if let Some(sentence) = args.get(1) {
         if Path::new(CHECKPOINT).exists() {
             model.var_map.load(CHECKPOINT)?;
