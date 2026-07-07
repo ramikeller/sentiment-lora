@@ -3,11 +3,27 @@ mod lora;
 mod model;
 mod train;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use candle_core::Device;
-use std::path::Path;
+use hf_hub::{api::sync::Api, Repo, RepoType};
+use std::path::{Path, PathBuf};
 
 const CHECKPOINT: &str = "classifier.safetensors";
+const MAX_TRAIN_SAMPLES: usize = 10;
+const MAX_VAL_SAMPLES: usize = 8;
+
+fn download_sst2() -> Result<(PathBuf, PathBuf)> {
+    let api = Api::new().context("failed to create HF Hub client")?;
+    let repo = api.repo(Repo::new("stanfordnlp/sst2".to_string(), RepoType::Dataset));
+    println!("Fetching SST-2 dataset...");
+    let train = repo
+        .get("data/train-00000-of-00001.parquet")
+        .context("failed to fetch SST-2 train split")?;
+    let val = repo
+        .get("data/validation-00000-of-00001.parquet")
+        .context("failed to fetch SST-2 validation split")?;
+    Ok((train, val))
+}
 
 fn main() -> Result<()> {
     let device = Device::Cpu;
@@ -25,8 +41,10 @@ fn main() -> Result<()> {
         } else {
             eprintln!("Warning: no checkpoint found at '{CHECKPOINT}', evaluating with random weights.");
         }
-        let samples = data::load_dataset(Path::new("data/sentiment.csv"), &tokenizer, 128)?;
-        println!("Loaded {} samples", samples.len());
+        let (_, val_path) = download_sst2()?;
+        let mut samples = data::load_sst2(&val_path, &tokenizer, 128)?;
+        samples.truncate(MAX_VAL_SAMPLES);
+        println!("Loaded {} validation samples", samples.len());
         let accuracy = train::evaluate(&model, &samples, &device)?;
         println!("Accuracy: {:.1}%", accuracy * 100.0);
         return Ok(());
@@ -47,13 +65,20 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let samples = data::load_dataset(Path::new("data/sentiment.csv"), &tokenizer, 128)?;
-    println!("Loaded {} samples", samples.len());
+    let (train_path, val_path) = download_sst2()?;
+    let mut train_samples = data::load_sst2(&train_path, &tokenizer, 128)?;
+    train_samples.truncate(MAX_TRAIN_SAMPLES);
+    let mut val_samples = data::load_sst2(&val_path, &tokenizer, 128)?;
+    val_samples.truncate(MAX_VAL_SAMPLES);
+    println!("Loaded {} train / {} validation samples", train_samples.len(), val_samples.len());
 
-    let baseline = train::evaluate(&model, &samples, &device)?;
+    let baseline = train::evaluate(&model, &val_samples, &device)?;
     println!("Accuracy (before training): {:.1}%", baseline * 100.0);
 
-    train::train(&model, &samples, &device, 10, 1e-3)?;
+    train::train(&model, &train_samples, &device, 3, 2e-4)?;
+
+    let accuracy = train::evaluate(&model, &val_samples, &device)?;
+    println!("Accuracy (after training): {:.1}%", accuracy * 100.0);
 
     model.var_map.save(CHECKPOINT)?;
     println!("Classifier weights saved to '{CHECKPOINT}'");

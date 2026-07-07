@@ -1,5 +1,8 @@
 use anyhow::{Context, Result};
+use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::record::Field;
 use tokenizers::Tokenizer;
+use std::fs::File;
 use std::path::Path;
 
 // One tokenized training example.
@@ -48,6 +51,50 @@ pub fn tokenize(text: &str, tokenizer: &Tokenizer, max_len: usize) -> Result<(Ve
     attention_mask.extend(std::iter::repeat(0).take(pad_len));
 
     Ok((input_ids, attention_mask))
+}
+
+// Load an SST-2 parquet split (sentence, label columns) from Hugging Face.
+pub fn load_sst2(path: &Path, tokenizer: &Tokenizer, max_len: usize) -> Result<Vec<SentimentSample>> {
+    let file = File::open(path)
+        .with_context(|| format!("could not open {}", path.display()))?;
+    let reader = SerializedFileReader::new(file)
+        .map_err(|e| anyhow::anyhow!("failed to read parquet: {e}"))?;
+
+    let mut samples = Vec::new();
+    let row_iter = reader
+        .get_row_iter(None)
+        .map_err(|e| anyhow::anyhow!("failed to iterate parquet rows: {e}"))?;
+
+    for row in row_iter {
+        let row = row.map_err(|e| anyhow::anyhow!("bad parquet row: {e}"))?;
+
+        let mut sentence: Option<String> = None;
+        let mut label: Option<u32> = None;
+
+        for (col, field) in row.get_column_iter() {
+            match col.as_str() {
+                "sentence" => {
+                    if let Field::Str(s) = field {
+                        sentence = Some(s.clone());
+                    }
+                }
+                "label" => match field {
+                    Field::Int(i) => label = Some(*i as u32),
+                    Field::Long(l) => label = Some(*l as u32),
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+
+        let sentence = sentence.ok_or_else(|| anyhow::anyhow!("missing 'sentence' column"))?;
+        let label = label.ok_or_else(|| anyhow::anyhow!("missing 'label' column"))?;
+
+        let (input_ids, attention_mask) = tokenize(&sentence, tokenizer, max_len)?;
+        samples.push(SentimentSample { input_ids, attention_mask, label });
+    }
+
+    Ok(samples)
 }
 
 // Read the CSV and return one SentimentSample per row.

@@ -23,7 +23,7 @@ pub fn train(
     for epoch in 0..epochs {
         let mut total_loss = 0f32;
 
-        for sample in samples {
+        for (i, sample) in samples.iter().enumerate() {
             let seq_len = sample.input_ids.len();
             let input_ids = Tensor::from_vec(sample.input_ids.clone(), (1, seq_len), device)?;
             let attention_mask = Tensor::from_vec(sample.attention_mask.clone(), (1, seq_len), device)?;
@@ -34,11 +34,17 @@ pub fn train(
 
             opt.backward_step(&loss)?;
             total_loss += loss.to_scalar::<f32>()?;
+
+            println!(
+                "  Epoch {:2} [{:4}/{}]  avg loss = {:.4}",
+                epoch + 1, i + 1, samples.len(),
+                total_loss / (i + 1) as f32,
+            );
         }
 
         let accuracy = evaluate(model, samples, device)?;
         println!(
-            "Epoch {:2}: loss = {:.4}  accuracy = {:.1}%",
+            "Epoch {:2} done — loss = {:.4}  train accuracy = {:.1}%",
             epoch + 1,
             total_loss / samples.len() as f32,
             accuracy * 100.0,
