@@ -31,15 +31,12 @@ Input text
 
 ```
 src/
-  data.rs    — SST-2 parquet loading, CSV loading, tokenization, padding
+  data.rs    — SST-2 parquet loading, tokenization, padding
   model.rs   — BERT loading, SentimentModel (BERT + classification head)
   lora.rs    — LoRA A/B matrix pairs (in progress)
   train.rs   — training loop and evaluation
-  main.rs    — entrypoint; controls train/eval/inference modes
-data/
-  sentiment.csv          — small hand-labelled dataset (used for early development)
-  eval.csv               — small held-out evaluation set (used for early development)
-classifier.safetensors   — saved classification head weights (produced by training)
+  main.rs    — entrypoint; --train / --eval / inference modes
+classifier.safetensors   — saved classification head weights (produced by --train)
 ```
 
 ## Dependencies
@@ -56,7 +53,7 @@ On first run, `bert-base-uncased` weights (~440 MB) and the SST-2 dataset are do
 **Train the classification head** (saves weights to `classifier.safetensors` when done):
 
 ```bash
-cargo run --release
+cargo run --release -- --train
 ```
 
 **Evaluate on the SST-2 validation set** (loads saved weights automatically):

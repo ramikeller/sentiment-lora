@@ -35,7 +35,9 @@ fn main() -> Result<()> {
     let tokenizer = data::load_tokenizer(&tokenizer_path)?;
 
     let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(|s| s.as_str()) == Some("--eval") {
+    let flag = args.get(1).map(|s| s.as_str());
+
+    if flag == Some("--eval") {
         if Path::new(CHECKPOINT).exists() {
             model.var_map.load(CHECKPOINT)?;
         } else {
@@ -50,12 +52,34 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if flag == Some("--train") {
+        let (train_path, val_path) = download_sst2()?;
+        let mut train_samples = data::load_sst2(&train_path, &tokenizer, 128)?;
+        train_samples.truncate(MAX_TRAIN_SAMPLES);
+        let mut val_samples = data::load_sst2(&val_path, &tokenizer, 128)?;
+        val_samples.truncate(MAX_VAL_SAMPLES);
+        println!("Loaded {} train / {} validation samples", train_samples.len(), val_samples.len());
+
+        let baseline = train::evaluate(&model, &val_samples, &device)?;
+        println!("Accuracy (before training): {:.1}%", baseline * 100.0);
+
+        train::train(&model, &train_samples, &device, 3, 2e-4)?;
+
+        let accuracy = train::evaluate(&model, &val_samples, &device)?;
+        println!("Accuracy (after training): {:.1}%", accuracy * 100.0);
+
+        model.var_map.save(CHECKPOINT)?;
+        println!("Classifier weights saved to '{CHECKPOINT}'");
+        return Ok(());
+    }
+
+    if Path::new(CHECKPOINT).exists() {
+        model.var_map.load(CHECKPOINT)?;
+    } else {
+        eprintln!("Warning: no checkpoint found at '{CHECKPOINT}', using random weights. Run --train first.");
+    }
+
     if let Some(sentence) = args.get(1) {
-        if Path::new(CHECKPOINT).exists() {
-            model.var_map.load(CHECKPOINT)?;
-        } else {
-            eprintln!("Warning: no checkpoint found at '{CHECKPOINT}', using random weights. Run without arguments to train first.");
-        }
         let (input_ids, attention_mask) = data::tokenize(sentence, &tokenizer, 128)?;
         let input_ids = candle_core::Tensor::from_vec(input_ids, (1, 128), &device)?;
         let attention_mask = candle_core::Tensor::from_vec(attention_mask, (1, 128), &device)?;
@@ -65,23 +89,6 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (train_path, val_path) = download_sst2()?;
-    let mut train_samples = data::load_sst2(&train_path, &tokenizer, 128)?;
-    train_samples.truncate(MAX_TRAIN_SAMPLES);
-    let mut val_samples = data::load_sst2(&val_path, &tokenizer, 128)?;
-    val_samples.truncate(MAX_VAL_SAMPLES);
-    println!("Loaded {} train / {} validation samples", train_samples.len(), val_samples.len());
-
-    let baseline = train::evaluate(&model, &val_samples, &device)?;
-    println!("Accuracy (before training): {:.1}%", baseline * 100.0);
-
-    train::train(&model, &train_samples, &device, 3, 2e-4)?;
-
-    let accuracy = train::evaluate(&model, &val_samples, &device)?;
-    println!("Accuracy (after training): {:.1}%", accuracy * 100.0);
-
-    model.var_map.save(CHECKPOINT)?;
-    println!("Classifier weights saved to '{CHECKPOINT}'");
-
+    eprintln!("Usage: sentiment-lora --train | --eval | \"<sentence>\"");
     Ok(())
 }
