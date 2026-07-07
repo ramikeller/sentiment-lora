@@ -28,5 +28,8 @@ serde_json = "1.0"
 # Reading SST-2 parquet files from Hugging Face
 parquet = "53"
 
+# Shuffling datasets before truncation
+rand = "0.8"
+
 [profile.release]
 opt-level = 3

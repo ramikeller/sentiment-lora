@@ -6,11 +6,12 @@ mod train;
 use anyhow::{Context, Result};
 use candle_core::Device;
 use hf_hub::{api::sync::Api, Repo, RepoType};
+use rand::seq::SliceRandom;
 use std::path::{Path, PathBuf};
 
 const CHECKPOINT: &str = "classifier.safetensors";
-const MAX_TRAIN_SAMPLES: usize = 10;
-const MAX_VAL_SAMPLES: usize = 8;
+const MAX_TRAIN_SAMPLES: usize = 100;
+const MAX_VAL_SAMPLES: usize = 50;
 
 fn download_sst2() -> Result<(PathBuf, PathBuf)> {
     let api = Api::new().context("failed to create HF Hub client")?;
@@ -43,8 +44,10 @@ fn main() -> Result<()> {
         } else {
             eprintln!("Warning: no checkpoint found at '{CHECKPOINT}', evaluating with random weights.");
         }
+        let mut rng = rand::thread_rng();
         let (_, val_path) = download_sst2()?;
         let mut samples = data::load_sst2(&val_path, &tokenizer, 128)?;
+        samples.shuffle(&mut rng);
         samples.truncate(MAX_VAL_SAMPLES);
         println!("Loaded {} validation samples", samples.len());
         let accuracy = train::evaluate(&model, &samples, &device)?;
@@ -53,10 +56,13 @@ fn main() -> Result<()> {
     }
 
     if flag == Some("--train") {
+        let mut rng = rand::thread_rng();
         let (train_path, val_path) = download_sst2()?;
         let mut train_samples = data::load_sst2(&train_path, &tokenizer, 128)?;
+        train_samples.shuffle(&mut rng);
         train_samples.truncate(MAX_TRAIN_SAMPLES);
         let mut val_samples = data::load_sst2(&val_path, &tokenizer, 128)?;
+        val_samples.shuffle(&mut rng);
         val_samples.truncate(MAX_VAL_SAMPLES);
         println!("Loaded {} train / {} validation samples", train_samples.len(), val_samples.len());
 

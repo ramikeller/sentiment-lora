@@ -2448,6 +2448,7 @@ dependencies = [
  "candle-transformers",
  "hf-hub",
  "parquet",
+ "rand 0.8.6",
  "serde",
  "serde_json",
  "tokenizers",
