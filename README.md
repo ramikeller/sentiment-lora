@@ -70,6 +70,24 @@ cargo run --release -- "This movie was absolutely fantastic!"
 # → positive
 ```
 
+## Results
+
+Configuration: 100 training samples, 50 validation samples, 3 epochs, lr=2e-4, AdamW.
+
+### Baseline: classification head only (no LoRA)
+
+| Epoch | Avg loss | Train accuracy |
+|-------|----------|----------------|
+| 1     | 0.7122   | 61.0%          |
+| 2     | 0.6735   | 66.0%          |
+| 3     | 0.6422   | 70.0%          |
+
+**Validation accuracy: 70.0%** (50 SST-2 validation samples)
+
+### LoRA
+
+_To be added after Step 8._
+
 ## Status
 
 | Step | Description | Status |
