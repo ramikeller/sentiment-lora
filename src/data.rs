@@ -97,37 +97,3 @@ pub fn load_sst2(path: &Path, tokenizer: &Tokenizer, max_len: usize) -> Result<V
     Ok(samples)
 }
 
-// Read the CSV and return one SentimentSample per row.
-// Expected CSV columns: text (string), label (0 or 1)
-pub fn load_dataset(
-    csv_path: &Path,
-    tokenizer: &Tokenizer,
-    max_len: usize,
-) -> Result<Vec<SentimentSample>> {
-    let mut reader = csv::Reader::from_path(csv_path)
-        .with_context(|| format!("could not open {}", csv_path.display()))?;
-
-    let mut samples = Vec::new();
-
-    for (i, result) in reader.records().enumerate() {
-        let record = result.with_context(|| format!("bad CSV row {i}"))?;
-
-        let text = record.get(0).with_context(|| format!("missing text at row {i}"))?;
-        let label: u32 = record
-            .get(1)
-            .with_context(|| format!("missing label at row {i}"))?
-            .trim()
-            .parse()
-            .with_context(|| format!("label at row {i} is not 0 or 1"))?;
-
-        let (input_ids, attention_mask) = tokenize(text, tokenizer, max_len)?;
-
-        samples.push(SentimentSample {
-            input_ids,
-            attention_mask,
-            label,
-        });
-    }
-
-    Ok(samples)
-}
