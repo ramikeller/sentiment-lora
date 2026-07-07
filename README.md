@@ -45,6 +45,7 @@ classifier.safetensors   — saved classification head weights (produced by --tr
 - [hf-hub](https://github.com/huggingface/hf-hub) — downloads model weights and datasets from Hugging Face
 - [tokenizers](https://github.com/huggingface/tokenizers) — fast WordPiece tokenization
 - [parquet](https://crates.io/crates/parquet) — reads SST-2 parquet splits
+- [rand](https://crates.io/crates/rand) — shuffles datasets before sampling
 
 ## Running
 
