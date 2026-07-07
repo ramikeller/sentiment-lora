@@ -1,10 +1,10 @@
 # sentiment-lora
 
-Binary sentiment classification using LoRA (Low-Rank Adaptation), written in Rust with the [candle](https://github.com/huggingface/candle) framework. We use a fine-tuned BERT model. 
+Binary sentiment classification using LoRA (Low-Rank Adaptation), written in Rust with the [candle](https://github.com/huggingface/candle) framework. We use a fine-tuned BERT model.
 
 ## What it does
 
-Takes a pre-trained `bert-base-uncased` model from Hugging Face and fine-tunes it on a labeled sentiment dataset (positive / negative) without modifying the original weights. Instead of updating all ~110M BERT parameters, LoRA inserts small trainable rank-decomposition matrices alongside the frozen attention weights — typically less than 0.1% of the total parameter count.
+Takes a pre-trained `bert-base-uncased` model from Hugging Face and fine-tunes it on the [SST-2](https://huggingface.co/datasets/stanfordnlp/sst2) sentiment dataset (positive / negative) without modifying the original weights. Instead of updating all ~110M BERT parameters, LoRA inserts small trainable rank-decomposition matrices alongside the frozen attention weights — typically less than 0.1% of the total parameter count.
 
 ## Architecture
 
@@ -31,28 +31,38 @@ Input text
 
 ```
 src/
-  data.rs    — CSV loading, tokenization, padding
+  data.rs    — SST-2 parquet loading, CSV loading, tokenization, padding
   model.rs   — BERT loading, SentimentModel (BERT + classification head)
   lora.rs    — LoRA A/B matrix pairs (in progress)
   train.rs   — training loop and evaluation
-  main.rs    — entrypoint
+  main.rs    — entrypoint; controls train/eval/inference modes
 data/
-  sentiment.csv          — labeled training examples
+  sentiment.csv          — small hand-labelled dataset (used for early development)
+  eval.csv               — small held-out evaluation set (used for early development)
 classifier.safetensors   — saved classification head weights (produced by training)
 ```
 
 ## Dependencies
 
 - [candle](https://github.com/huggingface/candle) — Hugging Face's ML framework for Rust
-- [hf-hub](https://github.com/huggingface/hf-hub) — downloads model weights from Hugging Face
+- [hf-hub](https://github.com/huggingface/hf-hub) — downloads model weights and datasets from Hugging Face
 - [tokenizers](https://github.com/huggingface/tokenizers) — fast WordPiece tokenization
+- [parquet](https://crates.io/crates/parquet) — reads SST-2 parquet splits
 
 ## Running
+
+On first run, `bert-base-uncased` weights (~440 MB) and the SST-2 dataset are downloaded and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the cache.
 
 **Train the classification head** (saves weights to `classifier.safetensors` when done):
 
 ```bash
 cargo run --release
+```
+
+**Evaluate on the SST-2 validation set** (loads saved weights automatically):
+
+```bash
+cargo run --release -- --eval
 ```
 
 **Run inference on a sentence** (loads saved weights automatically):
@@ -61,8 +71,6 @@ cargo run --release
 cargo run --release -- "This movie was absolutely fantastic!"
 # → positive
 ```
-
-On first run, `bert-base-uncased` weights (~440 MB) are downloaded and cached in `~/.cache/huggingface/hub/`. Subsequent runs use the cache.
 
 ## Status
 
@@ -74,4 +82,5 @@ On first run, `bert-base-uncased` weights (~440 MB) are downloaded and cached in
 | 4 | Classification head | done |
 | 5 | Training loop & evaluation | done |
 | 6 | Command-line inference | done |
-| 7 | LoRA layers | in progress |
+| 7 | SST-2 dataset integration | done |
+| 8 | LoRA layers | in progress |
