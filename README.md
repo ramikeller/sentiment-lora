@@ -8,6 +8,16 @@ Takes a pre-trained `bert-base-uncased` model from Hugging Face and fine-tunes i
 
 ## Architecture
 
+Current (classification head only):
+```
+Input text
+    └─▶ WordPiece tokenizer (bert-base-uncased vocabulary)
+            └─▶ BERT encoder (12 layers, frozen)
+                    └─▶ [CLS] token hidden state (768-dim)
+                            └─▶ Classification head (trainable) → positive / negative
+```
+
+Target (with LoRA):
 ```
 Input text
     └─▶ WordPiece tokenizer (bert-base-uncased vocabulary)
@@ -24,10 +34,11 @@ src/
   data.rs    — CSV loading, tokenization, padding
   model.rs   — BERT loading, SentimentModel (BERT + classification head)
   lora.rs    — LoRA A/B matrix pairs (in progress)
-  train.rs   — training loop and evaluation (in progress)
+  train.rs   — training loop and evaluation
   main.rs    — entrypoint
 data/
-  sentiment.csv  — labeled training examples
+  sentiment.csv          — labeled training examples
+classifier.safetensors   — saved classification head weights (produced by training)
 ```
 
 ## Dependencies
